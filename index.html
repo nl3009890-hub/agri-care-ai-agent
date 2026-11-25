@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agri-Care AI Agent v2.4 | Đề tài 4.5</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+    body { font-family: 'Be Vietnam Pro', sans-serif; background-color: #f4f7f5; color: #1e293b; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    @keyframes scanLine {
+      0% { top: 6%; opacity: 0.25; }
+      50% { top: 88%; opacity: 0.95; }
+      100% { top: 6%; opacity: 0.25; }
+    }
+    .laser-line { animation: scanLine 2.4s ease-in-out infinite; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+  <!-- Top SaaS Header -->
+  <header class="bg-emerald-950 text-white border-b border-emerald-800 sticky top-0 z-30 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-xl">🌱</div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-base sm:text-lg tracking-tight">AGRI-CARE AI AGENT</h1>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 mono">v2.4</span>
+          </div>
+          <p class="text-xs text-emerald-200/80">Tác tử Tự động Giám sát, Điều phối Tưới &amp; Chẩn đoán Bệnh Cây trồng — Đề tài 4.5</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="autoDemoBtn" onclick="runAutoWalkthrough()" class="px-3.5 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold text-xs sm:text-sm transition flex items-center gap-1.5 shadow">
+          <span>▶</span> Chạy Demo Tự Động (Auto-Walkthrough)
+        </button>
+        <button onclick="exportReportTxt()" class="px-3 py-2 rounded-lg bg-emerald-800 hover:bg-emerald-700 text-emerald-100 font-medium text-xs sm:text-sm border border-emerald-600/50 transition">
+          ⬇ Xuất Lệnh IoT (.TXT)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="max-w-7xl w-full mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+    <!-- Left Column: Perception & Sensor Inputs -->
+    <section class="lg:col-span-4 space-y-4">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-bold text-slate-800 text-sm uppercase tracking-wider">1. Dữ liệu Môi trường (Perception)</h2>
+          <span class="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-medium">IoT Live</span>
+        </div>
+
+        <!-- Quick Scenarios -->
+        <label class="block text-xs font-semibold text-slate-500 mb-1.5">Kịch bản mô phỏng nhanh:</label>
+        <div class="grid grid-cols-3 gap-1.5 mb-4">
+          <button onclick="applyPreset('drought')" class="text-xs py-2 px-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 font-medium transition">🔥 Khô hạn &amp; Nấm</button>
+          <button onclick="applyPreset('rain')" class="text-xs py-2 px-2 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 font-medium transition">🌧️ Dự báo mưa</button>
+          <button onclick="applyPreset('optimal')" class="text-xs py-2 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-medium transition">✅ Tối ưu</button>
+        </div>
+
+        <div class="space-y-3 text-sm">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Giống cây trồng canh tác</label>
+            <select id="cropSelect" onchange="runAgent()" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-slate-50 focus:outline-none focus:border-emerald-600">
+              <option value="rice">Lúa nước (Oryza sativa)</option>
+              <option value="tomato">Cà chua (Solanum lycopersicum)</option>
+              <option value="coffee">Cà phê Robusta</option>
+              <option value="durian">Sầu riêng (Monthong / Ri6)</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs font-semibold text-slate-600 mb-1">
+              <span>Diện tích canh tác</span>
+              <span id="areaVal" class="mono text-emerald-700">2.5 ha</span>
+            </div>
+            <input id="areaInput" type="range" min="0.5" max="20" step="0.5" value="2.5" oninput="runAgent()" class="w-full accent-emerald-700" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs font-semibold text-slate-600 mb-1">
+              <span>Độ ẩm đất cảm biến</span>
+              <span id="soilVal" class="mono text-emerald-700">44%</span>
+            </div>
+            <input id="soilInput" type="range" min="15" max="95" value="44" oninput="runAgent()" class="w-full accent-emerald-700" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs font-semibold text-slate-600 mb-1">
+              <span>Nhiệt độ không khí</span>
+              <span id="tempVal" class="mono text-emerald-700">32°C</span>
+            </div>
+            <input id="tempInput" type="range" min="15" max="42" value="32" oninput="runAgent()" class="w-full accent-emerald-700" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs font-semibold text-slate-600 mb-1">
+              <span>Độ ẩm không khí</span>
+              <span id="humVal" class="mono text-emerald-700">85%</span>
+            </div>
+            <input id="humInput" type="range" min="35" max="98" value="85" oninput="runAgent()" class="w-full accent-emerald-700" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs font-semibold text-slate-600 mb-1">
+              <span>Dự báo mưa 24h tới</span>
+              <span id="rainVal" class="mono text-emerald-700">0 mm</span>
+            </div>
+            <input id="rainInput" type="range" min="0" max="60" value="0" oninput="runAgent()" class="w-full accent-emerald-700" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Computer Vision Leaf Scanner -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-bold text-slate-800 text-sm uppercase tracking-wider">2. Thị giác Máy tính (YOLOv11)</h2>
+          <span class="text-xs mono text-slate-500">Edge AI</span>
+        </div>
+
+        <select id="symptomSelect" onchange="runAgent()" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-slate-50 mb-3">
+          <option value="brown_spot">Đốm nâu / Cháy bìa lá (Nấm/Vi khuẩn)</option>
+          <option value="yellow_leaf">Vàng lá / Héo rũ sinh lý &amp; rễ</option>
+          <option value="powdery">Phấn trắng / Mốc sương tán lá</option>
+          <option value="healthy">Lá xanh khỏe (Sinh trưởng bình thường)</option>
+        </select>
+
+        <!-- Simulated Leaf Bounding Box Viewport -->
+        <div class="relative rounded-xl bg-slate-900 h-44 overflow-hidden border border-slate-700 flex items-center justify-center">
+          <img id="leafPreviewImg" src="" alt="" class="hidden absolute inset-0 w-full h-full object-cover opacity-75" />
+          <svg id="leafVector" viewBox="0 0 240 140" class="w-52 h-32">
+            <path d="M25,115 C55,35 145,20 215,35 C185,95 110,125 25,115 Z" fill="#15803d" stroke="#4ade80" stroke-width="2"/>
+            <path d="M25,115 Q115,72 215,35" fill="none" stroke="#86efac" stroke-width="2"/>
+            <circle id="spot1" cx="118" cy="66" r="10" fill="#92400e" opacity="0.9"/>
+            <circle id="spot2" cx="152" cy="54" r="7" fill="#b45309" opacity="0.85"/>
+          </svg>
+          <div id="bboxOverlay" class="absolute border-2 border-rose-500 bg-rose-500/15 rounded px-1.5 py-0.5 text-[10px] text-rose-200 mono" style="top: 26%; left: 38%; width: 34%; height: 42%;">
+            <span id="bboxLabel">Leaf_Blight 94.2%</span>
+          </div>
+          <div class="laser-line absolute left-0 right-0 h-0.5 bg-emerald-400 shadow-[0_0_8px_#34d399]"></div>
+        </div>
+
+        <div class="mt-2.5 flex items-center justify-between gap-2">
+          <label class="text-xs text-emerald-700 hover:underline cursor-pointer font-medium">
+            📷 Tải ảnh lá thật để quét
+            <input type="file" accept="image/*" onchange="handleLeafUpload(event)" class="hidden" />
+          </label>
+          <button onclick="runAgent()" class="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition">
+            Kích hoạt AI Agent
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Agent Reasoning, Charts & Action Plan -->
+    <section class="lg:col-span-8 space-y-5">
+      <!-- 4 KPI Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+          <p class="text-xs text-slate-500 font-medium">Lưu lượng tưới đề xuất</p>
+          <p id="kpiWater" class="text-xl font-extrabold text-sky-700 mt-1 mono">138.5 m³</p>
+          <p id="kpiWaterSub" class="text-[11px] text-slate-500 mt-0.5">Kích hoạt van nhỏ giọt</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+          <p class="text-xs text-slate-500 font-medium">Mức rủi ro dịch hại</p>
+          <p id="kpiRisk" class="text-xl font-extrabold text-rose-600 mt-1">CAO (85%)</p>
+          <p id="kpiRiskSub" class="text-[11px] text-slate-500 mt-0.5">Cần xử lý trong 12h</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+          <p class="text-xs text-slate-500 font-medium">Sản lượng bảo toàn</p>
+          <p id="kpiYield" class="text-xl font-extrabold text-emerald-700 mt-1 mono">+3.82 tấn</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">So với không can thiệp</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+          <p class="text-xs text-slate-500 font-medium">Hiệu quả kinh tế tăng</p>
+          <p id="kpiMoney" class="text-xl font-extrabold text-amber-600 mt-1 mono">+28.6 Tr</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">Ước tính theo vụ mùa</p>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="flex border-b border-slate-200 bg-slate-50 px-4 pt-2 gap-2">
+          <button id="tabBtn1" onclick="switchTab(1)" class="px-4 py-2 text-xs sm:text-sm font-bold rounded-t-lg bg-white text-emerald-800 border-t border-x border-slate-200">
+            🧠 Trung tâm Điều hành &amp; Biểu đồ
+          </button>
+          <button id="tabBtn2" onclick="switchTab(2)" class="px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-lg text-slate-600 hover:text-slate-900">
+            ⚙️ Nhật ký Suy luận &amp; JSON IoT
+          </button>
+        </div>
+
+        <!-- Tab 1 Content -->
+        <div id="tab1" class="p-5 space-y-5">
+          <div id="alertBanner" class="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-sm font-medium">
+            ⚠️ Cảnh báo chủ động: Độ ẩm không khí 85% kết hợp triệu chứng Đốm nâu làm tốc độ lây lan bào tử nấm tăng gấp đôi trong 48 giờ tới.
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/60">
+              <h3 class="text-xs font-bold uppercase text-slate-500 mb-2">So sánh Sản lượng Dự kiến (Tấn)</h3>
+              <canvas id="yieldChart" height="175"></canvas>
+            </div>
+            <div class="space-y-2.5">
+              <div class="p-3.5 rounded-xl bg-sky-50 border border-sky-200">
+                <p class="text-xs font-bold text-sky-900">[Tool 1: Irrigation Control]</p>
+                <p id="tool1Text" class="text-xs text-sky-800 mt-1 leading-relaxed"></p>
+              </div>
+              <div class="p-3.5 rounded-xl bg-amber-50 border border-amber-200">
+                <p class="text-xs font-bold text-amber-900">[Tool 2: Crop Doctor Vision]</p>
+                <p id="tool2Text" class="text-xs text-amber-800 mt-1 leading-relaxed"></p>
+              </div>
+              <div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                <p class="text-xs font-bold text-emerald-900">[Tool 3: Yield &amp; Economic Forecast]</p>
+                <p id="tool3Text" class="text-xs text-emerald-800 mt-1 leading-relaxed"></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Plan Table -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-bold text-sm text-slate-800">Kế hoạch Hành động Tự động (Action Plan)</h3>
+              <button onclick="dispatchIoT()" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition">
+                📡 Gửi lệnh xuống trạm IoT
+              </button>
+            </div>
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-100 text-slate-700 font-bold">
+                  <tr>
+                    <th class="p-2.5">Phân hệ</th>
+                    <th class="p-2.5">Quyết định tự động</th>
+                    <th class="p-2.5">Thông số &amp; Hướng dẫn thực thi</th>
+                  </tr>
+                </thead>
+                <tbody id="actionTableBody" class="divide-y divide-slate-200"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2 Content -->
+        <div id="tab2" class="hidden p-5 space-y-4">
+          <p class="text-xs text-slate-600">Luồng suy luận từng bước (Chain-of-Thought Trace) và gói tin điều khiển JSON gửi tới bộ điều khiển biên PLC/IoT:</p>
+          <pre id="jsonTraceBox" class="bg-slate-950 text-emerald-300 p-4 rounded-xl text-xs mono overflow-x-auto leading-relaxed"></pre>
+        </div>
+      </div>
+
+      <!-- Contextual Agent Chat -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <h3 class="font-bold text-sm text-slate-800 mb-2">💬 Hỏi đáp Ngữ cảnh với Agri-Care Agent</h3>
+        <div id="chatLog" class="h-28 overflow-y-auto bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-2 mb-2.5">
+          <div class="text-slate-600"><b>Agri-Care Agent:</b> Xin chào! Tôi đã đọc xong thông số cảm biến hiện tại. Bạn có thể hỏi về liều lượng tưới, cách phòng trị bệnh hoặc hiệu quả kinh tế.</div>
+        </div>
+        <div class="flex gap-2">
+          <input id="chatInput" type="text" placeholder="Ví dụ: Tại sao hôm nay cần tưới lượng nước này?" onkeydown="if(event.key==='Enter') askAgent()" class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:border-emerald-600" />
+          <button onclick="askAgent()" class="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold">Gửi</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const CROPS = {
+      rice: { name: "Lúa nước", minSoil: 65, maxSoil: 85, waterNorm: 45, baseYield: 6.8, pricePerTon: 7.5 },
+      tomato: { name: "Cà chua", minSoil: 55, maxSoil: 70, waterNorm: 30, baseYield: 45.0, pricePerTon: 12.0 },
+      coffee: { name: "Cà phê Robusta", minSoil: 60, maxSoil: 75, waterNorm: 40, baseYield: 3.2, pricePerTon: 115.0 },
+      durian: { name: "Sầu riêng", minSoil: 60, maxSoil: 75, waterNorm: 50, baseYield: 18.0, pricePerTon: 85.0 }
+    };
+
+    const DISEASES = {
+      brown_spot: {
+        label: "Đốm nâu / Cháy bìa lá",
+        tag: "Leaf_Blight 94.2%",
+        severity: "CAO",
+        bio: "Ngưng bón đạm Ure, bổ sung Kali + Silic và phun nấm đối kháng Trichoderma.",
+        chem: "Phun hoạt chất Tricyclazole hoặc Azoxystrobin liều 400–500 lít/ha vào sáng sớm.",
+        penalty: 0.20,
+        showSpots: true
+      },
+      yellow_leaf: {
+        label: "Vàng lá / Héo rũ",
+        tag: "Chlorosis_Wilt 89.7%",
+        severity: "TRUNG BÌNH",
+        bio: "Kiểm tra thoát nước luống trồng, xới phá váng mặt đất và tưới chế phẩm kích rễ.",
+        chem: "Tưới gốc hoạt chất Metalaxyl hoặc Fosetyl-Aluminium nếu có dấu hiệu thối rễ.",
+        penalty: 0.16,
+        showSpots: true
+      },
+      powdery: {
+        label: "Phấn trắng / Mốc sương",
+        tag: "Powdery_Mildew 91.5%",
+        severity: "TRUNG BÌNH",
+        bio: "Tỉa lá già tạo thông thoáng tán cây, phun dầu khoáng sinh học hoặc Nano Bạc.",
+        chem: "Phun luân phiên Mancozeb hoặc Dimethomorph vào chiều mát.",
+        penalty: 0.15,
+        showSpots: true
+      },
+      healthy: {
+        label: "Lá xanh khỏe (Bình thường)",
+        tag: "Healthy_Leaf 98.9%",
+        severity: "THẤP (AN TOÀN)",
+        bio: "Duy trì chăm sóc định kỳ và đặt bẫy dính vàng theo dõi côn trùng.",
+        chem: "Không cần sử dụng thuốc bảo vệ thực vật.",
+        penalty: 0.0,
+        showSpots: false
+      }
+    };
+
+    let yieldChartInstance = null;
+    let latestState = {};
+
+    function applyPreset(type) {
+      if (type === 'drought') {
+        document.getElementById('soilInput').value = 42;
+        document.getElementById('tempInput').value = 33;
+        document.getElementById('humInput').value = 85;
+        document.getElementById('rainInput').value = 0;
+        document.getElementById('symptomSelect').value = 'brown_spot';
+      } else if (type === 'rain') {
+        document.getElementById('soilInput').value = 54;
+        document.getElementById('tempInput').value = 26;
+        document.getElementById('humInput').value = 88;
+        document.getElementById('rainInput').value = 28;
+        document.getElementById('symptomSelect').value = 'yellow_leaf';
+      } else {
+        document.getElementById('soilInput').value = 72;
+        document.getElementById('tempInput').value = 28;
+        document.getElementById('humInput').value = 74;
+        document.getElementById('rainInput').value = 5;
+        document.getElementById('symptomSelect').value = 'healthy';
+      }
+      runAgent();
+    }
+
+    function handleLeafUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        const img = document.getElementById('leafPreviewImg');
+        img.src = ev.target.result;
+        img.classList.remove('hidden');
+        document.getElementById('leafVector').classList.add('hidden');
+        runAgent();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function runAgent() {
+      const cropKey = document.getElementById('cropSelect').value;
+      const area = parseFloat(document.getElementById('areaInput').value);
+      const soil = parseInt(document.getElementById('soilInput').value);
+      const temp = parseInt(document.getElementById('tempInput').value);
+      const hum = parseInt(document.getElementById('humInput').value);
+      const rain = parseInt(document.getElementById('rainInput').value);
+      const symKey = document.getElementById('symptomSelect').value;
+
+      document.getElementById('areaVal').textContent = area.toFixed(1) + " ha";
+      document.getElementById('soilVal').textContent = soil + "%";
+      document.getElementById('tempVal').textContent = temp + "°C";
+      document.getElementById('humVal').textContent = hum + "%";
+      document.getElementById('rainVal').textContent = rain + " mm";
+
+      const crop = CROPS[cropKey];
+      const dis = DISEASES[symKey];
+
+      // Update bounding box visual
+      const bbox = document.getElementById('bboxOverlay');
+      document.getElementById('bboxLabel').textContent = dis.tag;
+      document.getElementById('spot1').style.display = dis.showSpots ? 'block' : 'none';
+      document.getElementById('spot2').style.display = dis.showSpots ? 'block' : 'none';
+      if (dis.showSpots) {
+        bbox.className = "absolute border-2 border-rose-500 bg-rose-500/15 rounded px-1.5 py-0.5 text-[10px] text-rose-200 mono";
+      } else {
+        bbox.className = "absolute border-2 border-emerald-400 bg-emerald-500/15 rounded px-1.5 py-0.5 text-[10px] text-emerald-200 mono";
+      }
+
+      // Tool 1: Irrigation Control
+      const etFactor = 1.0 + Math.max(0, (temp - 28) * 0.06) + Math.max(0, (70 - hum) * 0.01);
+      let decision = "", totalWater = 0, reason = "";
+      if (rain >= 15) {
+        decision = "TẠM HOÃN TƯỚI (Khóa van tự động)";
+        reason = `Dự báo mưa ${rain} mm trong 24h tới, tận dụng nước mưa tự nhiên giúp tiết kiệm 100% điện bơm.`;
+      } else if (soil < crop.minSoil) {
+        const deficit = (crop.minSoil - soil) / crop.minSoil;
+        const perHa = crop.waterNorm * (1 + deficit) * etFactor;
+        totalWater = +(perHa * area).toFixed(1);
+        decision = "KÍCH HOẠT TƯỚI NHỎ GIỌT NGAY";
+        reason = `Độ ẩm đất ${soil}% thấp hơn ngưỡng tối ưu (${crop.minSoil}–${crop.maxSoil}%). Hệ số bốc thoát hơi ET=${etFactor.toFixed(2)}.`;
+      } else if (soil > crop.maxSoil) {
+        decision = "MỞ VAN THOÁT NƯỚC / NGƯNG TƯỚI";
+        reason = `Độ ẩm đất ${soil}% vượt ngưỡng an toàn (${crop.maxSoil}%), cần thoát nước tránh ngập úng rễ.`;
+      } else {
+        decision = "DUY TRÌ TRẠNG THÁI CHỜ (Tối ưu)";
+        reason = `Độ ẩm đất ${soil}% nằm trong vùng tối ưu (${crop.minSoil}–${crop.maxSoil}%).`;
+      }
+
+      // Tool 3: Yield & Economics
+      let soilPenalty = soil < crop.minSoil - 8 ? 0.12 : 0;
+      let totalPenalty = soilPenalty + dis.penalty;
+      const yieldNoAI = +(crop.baseYield * area * (1 - totalPenalty)).toFixed(2);
+      const yieldWithAI = +(crop.baseYield * area * (1 - totalPenalty * 0.25)).toFixed(2);
+      const savedTons = +(yieldWithAI - yieldNoAI).toFixed(2);
+      const savedMoney = +(savedTons * crop.pricePerTon).toFixed(1);
+
+      // Update KPIs
+      document.getElementById('kpiWater').textContent = totalWater + " m³";
+      document.getElementById('kpiWaterSub').textContent = decision.split("(")[0].trim();
+      document.getElementById('kpiRisk').textContent = dis.severity;
+      document.getElementById('kpiRisk').className = "text-xl font-extrabold mt-1 " + (symKey === 'healthy' ? "text-emerald-700" : "text-rose-600");
+      document.getElementById('kpiRiskSub').textContent = dis.label;
+      document.getElementById('kpiYield').textContent = "+" + savedTons + " tấn";
+      document.getElementById('kpiMoney').textContent = "+" + savedMoney + " Tr";
+
+      // Update Tool Texts
+      document.getElementById('tool1Text').textContent = `${decision} — Tổng lưu lượng: ${totalWater} m³ cho ${area} ha. ${reason}`;
+      document.getElementById('tool2Text').textContent = `Chẩn đoán: ${dis.label}. Khuyến nghị sinh học: ${dis.bio}`;
+      document.getElementById('tool3Text').textContent = `Không can thiệp: ${yieldNoAI} tấn | Có Agent: ${yieldWithAI} tấn (Bảo toàn +${savedTons} tấn ≈ +${savedMoney} triệu VNĐ).`;
+
+      // Alert Banner
+      const banner = document.getElementById('alertBanner');
+      if (hum > 82 && symKey !== 'healthy') {
+        banner.className = "p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-sm font-medium";
+        banner.textContent = `⚠️ Cảnh báo chủ động: Ẩm độ không khí ${hum}% (>82%) kết hợp triệu chứng "${dis.label}" làm tốc độ lây lan nấm tăng gấp 2 lần trong 48h tới!`;
+      } else if (symKey === 'healthy' && rain < 15 && soil >= crop.minSoil && soil <= crop.maxSoil) {
+        banner.className = "p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm font-medium";
+        banner.textContent = `✅ Trạng thái lý tưởng: Các chỉ số môi trường và sinh trưởng của ${crop.name} đều đạt ngưỡng tối ưu.`;
+      } else {
+        banner.className = "p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs sm:text-sm font-medium";
+        banner.textContent = `ℹ️ Khuyến nghị vận hành: Hệ thống đã tự động cân chỉnh lịch tưới và phác đồ chăm sóc phù hợp cho ${crop.name}.`;
+      }
+
+      // Action Table
+      document.getElementById('actionTableBody').innerHTML = `
+        <tr>
+          <td class="p-2.5 font-semibold text-sky-800">Van tưới IoT</td>
+          <td class="p-2.5 font-bold">${decision}</td>
+          <td class="p-2.5">Lưu lượng: <b>${totalWater} m³</b> (${area} ha) — ${reason}</td>
+        </tr>
+        <tr>
+          <td class="p-2.5 font-semibold text-amber-800">Bảo vệ thực vật</td>
+          <td class="p-2.5 font-bold">${dis.label}</td>
+          <td class="p-2.5"><b>Sinh học:</b> ${dis.bio}<br/><b>Hóa học:</b> ${dis.chem}</td>
+        </tr>
+        <tr>
+          <td class="p-2.5 font-semibold text-emerald-800">Giám sát UAV/Cảm biến</td>
+          <td class="p-2.5 font-bold">Quét lại sau 24 giờ</td>
+          <td class="p-2.5">Duy trì ngưỡng ẩm đất mục tiêu ${crop.minSoil}% – ${crop.maxSoil}%.</td>
+        </tr>
+      `;
+
+      // JSON Trace
+      latestState = {
+        agent: "Agri-Care-AI-Agent-v2.4",
+        timestamp: new Date().toISOString(),
+        perception: { crop: crop.name, area_ha: area, soil_moisture_pct: soil, temp_c: temp, humidity_pct: hum, rain_24h_mm: rain, vision_detection: dis.tag },
+        reasoning_tools: {
+          irrigation_control: { decision, total_water_m3: totalWater, et_factor: +etFactor.toFixed(2) },
+          crop_doctor: { diagnosis: dis.label, severity: dis.severity, bio_protocol: dis.bio },
+          yield_forecast: { without_ai_tons: yieldNoAI, with_agent_tons: yieldWithAI, saved_value_million_vnd: savedMoney }
+        }
+      };
+      document.getElementById('jsonTraceBox').textContent = JSON.stringify(latestState, null, 2);
+
+      // Update Chart
+      const ctx = document.getElementById('yieldChart').getContext('2d');
+      if (yieldChartInstance) yieldChartInstance.destroy();
+      yieldChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Không dùng AI', 'Có Agri-Care Agent'],
+          datasets: [{
+            label: 'Sản lượng dự kiến (Tấn)',
+            data: [yieldNoAI, yieldWithAI],
+            backgroundColor: ['#94a3b8', '#059669'],
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    function switchTab(idx) {
+      document.getElementById('tab1').classList.toggle('hidden', idx !== 1);
+      document.getElementById('tab2').classList.toggle('hidden', idx !== 2);
+      document.getElementById('tabBtn1').className = idx === 1
+        ? "px-4 py-2 text-xs sm:text-sm font-bold rounded-t-lg bg-white text-emerald-800 border-t border-x border-slate-200"
+        : "px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-lg text-slate-600 hover:text-slate-900";
+      document.getElementById('tabBtn2').className = idx === 2
+        ? "px-4 py-2 text-xs sm:text-sm font-bold rounded-t-lg bg-white text-emerald-800 border-t border-x border-slate-200"
+        : "px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-lg text-slate-600 hover:text-slate-900";
+    }
+
+    function dispatchIoT() {
+      alert("📡 Đã gửi gói lệnh JSON điều khiển van tưới và cảnh báo nông vụ xuống trạm IoT Gateway thành công!");
+    }
+
+    function exportReportTxt() {
+      const content = "=== BÁO CÁO LỆNH ĐIỀU PHỐI AGRI-CARE AI AGENT v2.4 ===\n" + JSON.stringify(latestState, null, 2);
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "Lenh_Dieu_Phoi_Agri_Care_Agent_v2_4.txt";
+      a.click();
+    }
+
+    function askAgent() {
+      const input = document.getElementById('chatInput');
+      const q = input.value.trim();
+      if (!q) return;
+      const log = document.getElementById('chatLog');
+      log.innerHTML += `<div class="text-slate-800"><b>Bạn:</b> ${q}</div>`;
+      const s = latestState.perception;
+      const r = latestState.reasoning_tools;
+      const reply = `Dựa trên dữ liệu hiện tại của <b>${s.crop}</b> (ẩm đất <b>${s.soil_moisture_pct}%</b>, nhiệt độ <b>${s.temp_c}°C</b>, dự báo mưa <b>${s.rain_24h_mm}mm</b>), tôi quyết định <b>${r.irrigation_control.decision}</b> (${r.irrigation_control.total_water_m3} m³) và xử lý <b>${r.crop_doctor.diagnosis}</b> theo hướng dẫn: ${r.crop_doctor.bio_protocol}`;
+      log.innerHTML += `<div class="text-emerald-800"><b>Agri-Care Agent:</b> ${reply}</div>`;
+      log.scrollTop = log.scrollHeight;
+      input.value = "";
+    }
+
+    async function runAutoWalkthrough() {
+      const btn = document.getElementById('autoDemoBtn');
+      btn.disabled = true;
+      btn.textContent = "⏳ Đang trình diễn tự động...";
+      const steps = ['drought', 'rain', 'optimal'];
+      for (const st of steps) {
+        applyPreset(st);
+        await new Promise(r => setTimeout(r, 1800));
+      }
+      document.getElementById('chatInput').value = "Tóm tắt hiệu quả kinh tế và khuyến nghị tưới hiện tại?";
+      askAgent();
+      btn.disabled = false;
+      btn.innerHTML = "<span>▶</span> Chạy Demo Tự Động (Auto-Walkthrough)";
+    }
+
+    window.onload = runAgent;
+  </script>
+</body>
+</html>
